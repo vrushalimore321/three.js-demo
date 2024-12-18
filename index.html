@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>Three.js</title>
+</head>
+<body>
+
+    <!-- Importmap for resolving paths to three.js modules -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./node_modules/three/build/three.module.js",
+                "three/addons/": "./node_modules/three/examples/jsm/"
+            }
+        }
+    </script>
+
+    <!-- Three.js Code (Module type) -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let camera, scene, renderer;
+
+        const params = {
+            clipIntersection: true,
+            planeConstant: 0,
+            showHelpers: false,
+            alphaToCoverage: true
+        };
+
+        const clipPlanes = [
+            new THREE.Plane(new THREE.Vector3(1, 0, 0), 0),
+            new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
+            new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)
+        ];
+
+        init();
+        render();
+
+        function init() {
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.localClippingEnabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 200);
+            camera.position.set(-1.5, 2.5, 3.0);
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.addEventListener('change', render); // use only if there is no animation loop
+            controls.minDistance = 1;
+            controls.maxDistance = 10;
+            controls.enablePan = false;
+
+            const light = new THREE.HemisphereLight(0xffffff, 0x080808, 4.5);
+            light.position.set(-1.25, 1, 1.25);
+            scene.add(light);
+
+            const group = new THREE.Group();
+
+            for (let i = 1; i <= 30; i += 2) {
+                //const geometry = new THREE.SphereGeometry(1, 64, 64); 
+                const geometry = new THREE.SphereGeometry(0.5, 64, 64); // Adjusted radius to 0.5
+
+                const material = new THREE.MeshPhongMaterial({
+                    map: createEmojiTexture('📍'),
+                    side: THREE.DoubleSide,
+                    clippingPlanes: clipPlanes,
+                    clipIntersection: params.clipIntersection,
+                    alphaToCoverage: true,
+                });
+
+                group.add(new THREE.Mesh(geometry, material));
+            }
+
+            scene.add(group);
+
+            const helpers = new THREE.Group();
+            helpers.add(new THREE.PlaneHelper(clipPlanes[0], 2, 0xff0000));
+            helpers.add(new THREE.PlaneHelper(clipPlanes[1], 2, 0x00ff00));
+            helpers.add(new THREE.PlaneHelper(clipPlanes[2], 2, 0x0000ff));
+            helpers.visible = false;
+            scene.add(helpers);
+
+            const gui = new GUI();
+            gui.add(params, 'alphaToCoverage').onChange(function (value) {
+                group.children.forEach(c => {
+                    c.material.alphaToCoverage = Boolean(value);
+                    c.material.needsUpdate = true;
+                });
+                render();
+            });
+            gui.add(params, 'clipIntersection').name('clip intersection').onChange(function (value) {
+                const children = group.children;
+                for (let i = 0; i < children.length; i++) {
+                    children[i].material.clipIntersection = value;
+                }
+                render();
+            });
+            gui.add(params, 'planeConstant', -1, 1).step(0.01).name('plane constant').onChange(function (value) {
+                for (let j = 0; j < clipPlanes.length; j++) {
+                    clipPlanes[j].constant = value;
+                }
+                render();
+            });
+            gui.add(params, 'showHelpers').name('show helpers').onChange(function (value) {
+                helpers.visible = value;
+                render();
+            });
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createEmojiTexture(emoji) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 512;
+        canvas.height = 512;
+
+        // Draw emoji in the top right corner
+        ctx.fillStyle = '#ffffff'; // Background color
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.font = '256px Arial'; // Adjust the font size as needed
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(emoji, canvas.width - 32, 32); // Adjust the position as needed
+
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        render();
+    }
+
+    function render() {
+        renderer.render(scene, camera);
+    }
+</script>
+
+</body>
+</html>
